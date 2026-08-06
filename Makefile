@@ -154,11 +154,12 @@ media:
 	fi
 	@mkdir -p $(MEDIA_DIR)
 	@set -e; \
-	for spec in "$(BUNNY_TIC)|$(BUNNY_PATH)|$(BUNNY_SHA256)" \
-	            "$(CARTTPL_TIC)|$(CARTTPL_PATH)|$(CARTTPL_SHA256)"; do \
+	for spec in "$(BUNNY_TIC)|$(BUNNY_PATH)|$(BUNNY_SHA256)|$(BUNNY_BYTES)" \
+	            "$(CARTTPL_TIC)|$(CARTTPL_PATH)|$(CARTTPL_SHA256)|$(CARTTPL_BYTES)"; do \
 		file=`echo "$$spec" | cut -d'|' -f1`; \
 		path=`echo "$$spec" | cut -d'|' -f2`; \
 		want=`echo "$$spec" | cut -d'|' -f3`; \
+		size=`echo "$$spec" | cut -d'|' -f4`; \
 		url="$(TIC80_RAW)/$$path"; \
 		if [ -f "$$file" ]; then \
 			echo "  MEDIA $$file already here — verifying"; \
@@ -179,10 +180,13 @@ media:
 			echo "        is NOT safe to put on a card."; \
 			exit 1; \
 		fi; \
-		head -c 4 "$$file" | grep -q TIC || { \
-			echo "  MEDIA $$file does not begin with the cartridge magic"; \
-			exit 1; }; \
-		echo "  MEDIA $$file verified ($$(wc -c < $$file | tr -d ' ') bytes)"; \
+		bytes=`wc -c < "$$file" | tr -d ' '`; \
+		if [ "$$bytes" != "$$size" ]; then \
+			echo "  MEDIA WRONG SIZE for $$file"; \
+			echo "        expected $$size bytes, got $$bytes"; \
+			exit 1; \
+		fi; \
+		echo "  MEDIA $$file verified ($$bytes bytes, SHA256 matches)"; \
 	done
 	@printf '%s\n' \
 		"TIC-80 starter cartridges" \

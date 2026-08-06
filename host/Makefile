@@ -137,6 +137,12 @@ OBJS = $(HOST_OBJS) $(TIC_OBJS)
 # unconditionally, and building it as C++20 fails inside the header.
 STANDARD = -std=gnu++23
 
+# C11, which is what upstream's build asks for. Circle's Rules.mk defaults
+# this to gnu99, and TIC-80 uses C11's static_assert — which newlib's
+# assert.h defines only when __STDC_VERSION__ says C11, so under gnu99 the
+# declaration is read as a call to an undeclared function.
+C_STANDARD = -std=gnu11
+
 # Stated, not inherited: this is Circle's own default, written down so the
 # build's optimization level is a fact in the file rather than a forensic
 # reconstruction.
@@ -217,11 +223,12 @@ INCLUDE := -I $(SHIM)/include -I $(SHIM)/include/SDL2 \
 	-I $(TIC)/vendor/argparse -I $(TIC)/vendor/jsmn \
 	$(CIRCLE_STDLIB_INCLUDES) $(INCLUDE)
 
-# The C sources are C11, which is what upstream's build asks for. It is
-# stated here rather than added to CFLAGS because Rules.mk folds CFLAGS into
-# the C++ flags as well, and a C standard handed to the C++ compiler is a
-# warning on every C++ file in the build. $(STANDARD) above covers those.
-TIC_CFLAGS = -std=gnu11 $(TIC_DEFINE) $(CFLAGS)
+# TIC-80's own C flags: the build's C flags, plus what upstream's CMake
+# defines for this configuration. The C standard is not repeated here — it
+# is set through Rules.mk's C_STANDARD above, which is what puts it in
+# $(CFLAGS) in the first place, and a second -std later on the command line
+# would silently win over it.
+TIC_CFLAGS = $(TIC_DEFINE) $(CFLAGS)
 
 # The shim comes in whole, every member, rather than only the members the
 # link happens to need. An object file linked straight into the kernel beats
@@ -296,6 +303,19 @@ $(OBJDIR)/tic/src/system/sdl/main.o: $(TIC)/src/system/sdl/main.c
 	@mkdir -p $(dir $@)
 	@echo "  CC    $@ (entry point renamed)"
 	@$(CC) $(TIC_CFLAGS) -Dmain=tic80_main -c -o $@ $<
+
+# miniz, inside the vendored zip library, calls utime() while extracting an
+# archive member. newlib's <utime.h> defines struct utimbuf and declares no
+# prototype, so the declaration is forced in from this port's own header —
+# the function is in circle_stubs.cpp.
+$(OBJDIR)/tic/vendor/zip/src/zip.o: $(TIC)/vendor/zip/src/zip.c
+	@mkdir -p $(dir $@)
+	@echo "  CC    $@"
+	@$(CC) $(TIC_CFLAGS) -include $(CURDIR)/ticext/rapi_utime.h -c -o $@ $<
+
+$(OBJDIR)/tic/vendor/zip/src/zip.d: $(TIC)/vendor/zip/src/zip.c
+	@mkdir -p $(dir $@)
+	@$(CC) $(TIC_CFLAGS) -include $(CURDIR)/ticext/rapi_utime.h -M -MG -MT $(@:.d=.o) -MT $@ -MF $@ $<
 
 $(OBJDIR)/tic/src/system/sdl/main.d: $(TIC)/src/system/sdl/main.c
 	@mkdir -p $(dir $@)

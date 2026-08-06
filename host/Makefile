@@ -137,20 +137,18 @@ OBJS = $(HOST_OBJS) $(TIC_OBJS)
 # unconditionally, and building it as C++20 fails inside the header.
 STANDARD = -std=gnu++23
 
-# C11, which is what upstream's build asks for, and which this file has to
-# name because both neighbouring standards break the build:
+# C11, which is what upstream's CMakeLists asks for, and which this build has
+# to say out loud in two places.
 #
-#   gnu99   newlib's assert.h defines static_assert only when
-#           __STDC_VERSION__ says C11 or later, and TIC-80's cart.c uses it.
-#   gnu23   an empty parameter list means (void) rather than "unspecified",
-#           so tic80.h's `u64 (*counter)()` and tic.c's definition of the
-#           same function stop agreeing.
+# It must not be C23. There, an empty parameter list means (void) rather than
+# "unspecified", so tic80.h's `u64 (*counter)()` and tic.c's definition of the
+# same function stop agreeing and the file will not compile.
 #
-# Rules.mk holds this in C_STANDARD, defaulted with ?=, and puts it on the
-# command line in its own C recipe rather than in CFLAGS — so setting it here
-# is only half the job, and this directory's own C recipes have to pass
-# $(C_STANDARD) themselves. Omitting it there does not fall back to gnu99, it
-# falls back to the compiler's default, which is gnu23.
+# Rules.mk holds the standard in C_STANDARD, defaulted with ?=, and puts
+# $(C_STANDARD) on the command line in its own C recipe rather than folding it
+# into CFLAGS. So setting it here is only half the job: this directory's own C
+# recipes pass it themselves, and a recipe that forgets does not fall back to
+# Rules.mk's default — it falls back to the compiler's, which is C23.
 C_STANDARD = -std=gnu11
 
 # Stated, not inherited: this is Circle's own default, written down so the

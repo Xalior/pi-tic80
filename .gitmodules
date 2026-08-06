@@ -1,0 +1,6 @@
+[submodule "circle-libsdl2"]
+	path = circle-libsdl2
+	url = https://github.com/Xalior/circle-libsdl2.git
+[submodule "TIC-80"]
+	path = TIC-80
+	url = https://github.com/nesbox/TIC-80.git

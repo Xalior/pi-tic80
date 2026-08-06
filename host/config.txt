@@ -1,5 +1,5 @@
 #
-# Raspberry Pi firmware boot configuration for pi-chocolate-doom.
+# Raspberry Pi firmware boot configuration for pi-tic80.
 #
 # One file for all three boards. The firmware reads the model section that
 # matches the board it is running on and boots the image named there, so a

@@ -114,10 +114,17 @@ verify:
 # commit this repository pins for the submodule, under the MIT licence the
 # repository carries.
 #
-# Both are checked by SHA256 against the copies this project fetched, and by
-# the cartridge format's own magic. TIC-80 publishes no checksum for either
+# Each file is checked by SHA256 and by its exact byte count, both against
+# the copy this project fetched. TIC-80 publishes no checksum for either
 # file, so the recorded SHA256 is the only comparison available and the
-# provenance file says so. Re-running re-verifies rather than re-downloading.
+# provenance file says so.
+#
+# There is no magic-number check because a .tic cartridge has no magic
+# number: the format is a bare stream of chunks, and its first byte is the
+# first chunk's type and bank fields. The checksum is the whole of the
+# verification.
+#
+# Re-running re-verifies rather than re-downloading.
 MEDIA_DIR = media
 
 TIC80_COMMIT = 4aba09c98f1e5028b82765be1647677b08d35942
@@ -126,10 +133,12 @@ TIC80_RAW    = https://raw.githubusercontent.com/nesbox/TIC-80/$(TIC80_COMMIT)
 BUNNY_TIC    = $(MEDIA_DIR)/bunny.tic
 BUNNY_PATH   = templates/nim/demo/bunny.tic
 BUNNY_SHA256 = ae0393d63970e21d7cd2452a2949adf2216dc03c7d72eebd6a36f34362324d8c
+BUNNY_BYTES  = 18560
 
 CARTTPL_TIC    = $(MEDIA_DIR)/cart-template.tic
 CARTTPL_PATH   = templates/nim/src/cart.tic
 CARTTPL_SHA256 = 8561fa163e9c55330f30df5c298674cb0c58078c6c0b24989cc176e6cb463080
+CARTTPL_BYTES  = 102861
 
 # sha256sum on Linux, shasum on macOS. Whichever exists; if neither does the
 # target stops rather than accepting a download it cannot check.

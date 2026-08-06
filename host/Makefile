@@ -137,10 +137,20 @@ OBJS = $(HOST_OBJS) $(TIC_OBJS)
 # unconditionally, and building it as C++20 fails inside the header.
 STANDARD = -std=gnu++23
 
-# C11, which is what upstream's build asks for. Circle's Rules.mk defaults
-# this to gnu99, and TIC-80 uses C11's static_assert — which newlib's
-# assert.h defines only when __STDC_VERSION__ says C11, so under gnu99 the
-# declaration is read as a call to an undeclared function.
+# C11, which is what upstream's build asks for, and which this file has to
+# name because both neighbouring standards break the build:
+#
+#   gnu99   newlib's assert.h defines static_assert only when
+#           __STDC_VERSION__ says C11 or later, and TIC-80's cart.c uses it.
+#   gnu23   an empty parameter list means (void) rather than "unspecified",
+#           so tic80.h's `u64 (*counter)()` and tic.c's definition of the
+#           same function stop agreeing.
+#
+# Rules.mk holds this in C_STANDARD, defaulted with ?=, and puts it on the
+# command line in its own C recipe rather than in CFLAGS — so setting it here
+# is only half the job, and this directory's own C recipes have to pass
+# $(C_STANDARD) themselves. Omitting it there does not fall back to gnu99, it
+# falls back to the compiler's default, which is gnu23.
 C_STANDARD = -std=gnu11
 
 # Stated, not inherited: this is Circle's own default, written down so the
@@ -199,7 +209,15 @@ DEFINE += -DRAPI_GAME_DIR='"$(RAPI_GAME_DIR)"'
 #                        run-time check that does not exist here.
 TIC_DEFINE = -DTIC_RUNTIME_STATIC -DTIC_BUILD_WITH_LUA -DBUILD_DEPRECATED \
 	-DBUILD_EDITORS -DBUILD_SURF -DTIC80_FFT_UNSUPPORTED=1 \
-	-DLUA_COMPAT_5_2 -DPNG_ARM_NEON_OPT=0
+	-DLUA_COMPAT_5_2 -DPNG_ARM_NEON_OPT=0 \
+	-Dstatic_assert=_Static_assert
+
+# The last of those is not upstream's. TIC-80 checks the size of its memory
+# layout with C11's static_assert, which <assert.h> defines as a macro for
+# the _Static_assert keyword. The <assert.h> reached here is CIRCLE's, which
+# comes earlier on the include path than newlib's and defines assert alone —
+# so the macro that would otherwise arrive with the header is supplied here
+# instead, spelled exactly as newlib spells it.
 
 # TIC-80 writes `#include <SDL.h>`, the spelling a desktop sdl2-config
 # include path provides, so the shim's SDL2/ directory goes on the path in
@@ -223,12 +241,10 @@ INCLUDE := -I $(SHIM)/include -I $(SHIM)/include/SDL2 \
 	-I $(TIC)/vendor/argparse -I $(TIC)/vendor/jsmn \
 	$(CIRCLE_STDLIB_INCLUDES) $(INCLUDE)
 
-# TIC-80's own C flags: the build's C flags, plus what upstream's CMake
-# defines for this configuration. The C standard is not repeated here — it
-# is set through Rules.mk's C_STANDARD above, which is what puts it in
-# $(CFLAGS) in the first place, and a second -std later on the command line
-# would silently win over it.
-TIC_CFLAGS = $(TIC_DEFINE) $(CFLAGS)
+# TIC-80's own C flags: the build's C flags and C standard, in the order
+# Rules.mk's own C recipe uses them, plus what upstream's CMake defines for
+# this configuration.
+TIC_CFLAGS = $(CFLAGS) $(C_STANDARD) $(TIC_DEFINE)
 
 # The shim comes in whole, every member, rather than only the members the
 # link happens to need. An object file linked straight into the kernel beats

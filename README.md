@@ -186,41 +186,6 @@ pin changes what happens at that temperature: the fan is switched on and the
 processor is left at full speed, instead of being slowed down. That is what a
 game wants, because a slowed processor drops frames.
 
-### Boot options
-
-`cmdline.txt` also accepts switches this kernel reads:
-
-| Option | Effect |
-|---|---|
-| `rapi-perf=N` | Print a performance line to the serial console every N seconds. |
-| `rapi-debug-uart` | Accept key presses from the serial console, so a board with no keyboard attached can still be driven. |
-
-## How the layers fit
-
-`host/` holds everything this repository adds, and nothing else:
-
-| File | What it is |
-|---|---|
-| `kernel.cpp`, `kernel.h`, `main.cpp` | The Circle kernel: brings up the serial console, the SD card and the filesystem, elects the three cores, and calls TIC-80. |
-| `defaults.cpp`, `defaults.h`, `defaultsblock.h`, `tic80-defaults.ld` | A patchable block of text at offset 0x800 in the image, which a boot loader can write arguments into without anything being rebuilt. |
-| `circle_syscalls.cpp` | Puts the SD card underneath the C library in a way that is legal from a core that does not own the hardware. |
-| `circle_stubs.cpp` | Three things a desktop C library answers and this one does not: `utime`, `chmod`, and the storage upstream's own no-capture-device build leaves undefined. |
-| `ticext/` | Headers upstream's build system generates while configuring a build, written down instead: the version strings, and libpng's configuration. |
-| `config.txt`, `cmdline.txt` | Firmware boot configuration, one file for all three boards. |
-
-There is no SDL2 in `host/`. SDL2 is circle-libsdl2's job, and a function that
-library does not yet implement is reported to it rather than written here,
-where only this one project could ever reach it.
-
-TIC-80's entry point is renamed by the preprocessor for one file, so that
-`main` belongs to the Circle kernel and the console is a function it calls.
-That is the whole of the intrusion into upstream: no patch, no fork, no edit.
-
-The console is pointed at its own directory on the card four ways, because
-different parts of it derive paths differently: the program name it is given,
-upstream's own `--fs` switch, the directory SDL reports it may write into, and
-the working directory the kernel sets before it starts.
-
 ## License
 
 The code in this repository — the kernel layer in `host/` and the build — is

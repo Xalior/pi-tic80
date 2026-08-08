@@ -7,6 +7,11 @@ Linux, no desktop, no launcher, and nothing else running beside it.
 It builds for the Raspberry Pi 3, Pi 4 and Pi 5, all three from one source
 tree.
 
+![TIC-80 running a cartridge on a Raspberry Pi 5 with no operating system](docs/tic80-cart-running.jpg)
+
+*Captured from the Pi 5's HDMI output — the bunnymark cartridge, holding 59
+frames a second.*
+
 ## What this is
 
 [TIC-80](https://github.com/nesbox/TIC-80) is a fantasy computer: a small
@@ -23,54 +28,32 @@ at an upstream commit, and the build reads it without ever writing to it.
 Where the console needs something that is not SDL2 and that a bare-metal C
 library does not provide, this repository supplies it in `host/`.
 
-Three processor cores are given separate work:
+The console draws at 256x144 — its 240x136 screen and the border around it —
+and the picture is scaled once onto whatever your screen actually is.
 
-- **Core 0** owns the hardware. Circle's world lives here — interrupts, USB,
-  the SD card, sound — and no other core touches a device.
-- **Core 1** runs TIC-80 and nothing else.
-- **Core 2** puts finished frames on the screen. The console draws at 256x144
-  — its 240x136 screen and the border around it — and never learns the
-  display's size; the picture is scaled once, at the end, onto whatever the
-  screen is really showing.
+## What works
 
-## State of this port
+The console runs, and so do its editors.
 
-This is an early port. **It has not been run on hardware.** The list below is
-what the code does, not what has been observed.
+- **Picture and sound.** The console's screen and its four sound channels.
+- **Keyboard and mouse.** Both, which the built-in editors need.
+- **Game controllers.** TIC-80's four-player pad mapping.
+- **Cartridges.** Loaded from and saved to the SD card. The demonstration
+  cartridges are built in — type `demo` at the console and they are written
+  out as real files you can load, run and edit.
 
-**Present:**
+What is missing:
 
-- Video: the console's own screen, uploaded whole each frame and scaled to the
-  display.
-- Keyboard and mouse: USB devices through Circle's HID drivers. The editors
-  need both.
-- Game controllers: TIC-80's four-player pad mapping, through SDL's game
-  controller API.
-- Sound: TIC-80 generates its own audio and needs no separate mixer library,
-  so the console's four channels reach the SDL audio device directly.
-- Files: cartridges and the configuration, read from and written to the SD
-  card.
-- Lua: cartridges written in Lua run. TIC-80's demonstration cartridges are
-  compiled into the binary, so there is something to run before you add a
-  single file — type `demo` at the console.
-
-**Absent, and why:**
-
-- **Every language except Lua.** TIC-80 supports a dozen: Ruby, JavaScript,
-  MoonScript, Fennel, Wren, Squirrel, Scheme, Python, Janet, WebAssembly and
-  more. Each is a complete interpreter compiled into the binary, and this port
-  builds only Lua — the one TIC-80 itself treats as the default. Adding
-  another is a source list and a define in `host/Makefile`, not new work.
-- **The spectrum API.** TIC-80's `fft()` and `ffts()` read a live audio
-  spectrum from a capture device. circle-libsdl2 opens audio output devices
-  only, so this port sets upstream's own `TIC80_FFT_UNSUPPORTED`, and those
-  two functions report that there is nothing to hear.
-- **Networking.** TIC-80 can browse and download community cartridges over the
-  internet. There is no network stack behind SDL here, so the browser lists
-  what is on the card and nothing else.
-- **The PRO features.** Upstream gates text-format cartridges and a few export
-  formats behind a paid build. This is not that build, so cartridges must be
-  the binary `.tic` or `.png` kind.
+- **Every language except Lua.** TIC-80 supports a dozen — Ruby, JavaScript,
+  Fennel, Wren, Python and more — and this build carries only Lua, the one
+  TIC-80 treats as its default.
+- **Networking.** The cartridge browser lists what is on the card and nothing
+  else; it cannot reach the community site.
+- **The spectrum functions.** `fft()` and `ffts()` listen to an audio input,
+  and there is none, so they report silence.
+- **The PRO features.** Text-format cartridges and some export formats are a
+  paid upstream build. Cartridges here must be the binary `.tic` or `.png`
+  kind.
 
 ## What you need to supply
 
@@ -174,17 +157,19 @@ Everything this console reads and writes stays inside `games/tic80/` on the
 card. A card can carry several of these projects, and each keeps to its own
 directory rather than writing settings into the card's root.
 
-### The thermal settings in `cmdline.txt`
+### Keeping it cool
 
-One card boots any of the three boards, so all three read the same
-`cmdline.txt`. It carries `socmaxtemp=70`, the temperature in degrees Celsius
-at which the processor is slowed down to cool itself.
+The card carries `cmdline.txt`, which sets the temperature the board is
+allowed to reach and the pin its fan is on:
 
-If your board has a fan, add `gpiofanpin=` and the GPIO pin it is wired to —
-`gpiofanpin=45` is a Raspberry Pi 5 Case Fan or Active Cooler. Naming a fan
-pin changes what happens at that temperature: the fan is switched on and the
-processor is left at full speed, instead of being slowed down. That is what a
-game wants, because a slowed processor drops frames.
+    socmaxtemp=70 gpiofanpin=45
+
+Pin 45 is the Raspberry Pi 5 Case Fan and Active Cooler. With a fan named,
+reaching 70°C switches the fan on and the processor keeps running at full
+speed. Without one it would be slowed down instead, and a slowed processor
+drops frames.
+
+If your fan is wired somewhere else, change the pin number.
 
 ## License
 

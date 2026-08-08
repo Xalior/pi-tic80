@@ -86,17 +86,6 @@ HOST_SRCS = main.cpp kernel.cpp defaults.cpp circle_syscalls.cpp \
 	circle_stubs.cpp
 HOST_OBJS = $(addprefix $(OBJDIR)/,$(HOST_SRCS:.cpp=.o))
 
-# The SD card's read cache, which lives in circle-libsdl2 rather than here.
-#
-# It is not part of SDL and does not use it: it is Circle device-layer code
-# that wraps the card and is picked up by name, so FatFs and every file the
-# program opens go through it without knowing. It is kept in that repository
-# because that is where the shared pieces are today, and it is compiled
-# straight into this kernel — there is no library to link, and no other port
-# has to agree with this one about how it is built.
-DISKCACHE_DIR = $(SHIM)/circle-diskcache
-DISKCACHE_OBJ = $(OBJDIR)/diskcache.o
-
 # The TIC-80 console itself, as upstream's cmake/core.cmake enumerates the
 # tic80core library. Every file is compiled exactly as upstream wrote it.
 TIC_CORE = \
@@ -161,7 +150,7 @@ VENDOR_SRCS = $(VENDOR_LUA) $(VENDOR_GIF) $(VENDOR_ZLIB) $(VENDOR_PNG) \
 
 TIC_OBJS = $(addprefix $(OBJDIR)/tic/,$(TIC_SRCS:.c=.o) $(VENDOR_SRCS:.c=.o))
 
-OBJS = $(HOST_OBJS) $(DISKCACHE_OBJ) $(TIC_OBJS)
+OBJS = $(HOST_OBJS) $(TIC_OBJS)
 
 # gnu23 rather than gnu20: this libc++'s <algorithm> uses a C++23 construct
 # unconditionally, and building it as C++20 fails inside the header.
@@ -194,6 +183,19 @@ OPTIMIZE = -O2
 # there is only ever one recipe for the image.
 SDL_APP_IMAGE := $(TARGET)
 TARGET := $(OBJDIR)/.circle-unused
+
+# The SD card's read cache, which lives in circle-libsdl2 rather than here.
+#
+# It is not part of SDL and does not use it: it is Circle device-layer code
+# that wraps the card and is picked up by name, so FatFs and every file the
+# program opens go through it without knowing.
+#
+# On the line before Rules.mk because that is where its own makefile fragment
+# says to put it: Rules.mk works out its dependency list from OBJS as it reads
+# it, so a source added afterwards is one make never checks. The fragment
+# finds its own directory and adds everything else itself.
+include $(SHIM)/circle-diskcache/diskcache.mk
+
 include $(CIRCLEHOME)/Rules.mk
 TARGET := $(SDL_APP_IMAGE)
 
@@ -271,7 +273,6 @@ TIC_DEFINE = -DTIC_RUNTIME_STATIC -DTIC_BUILD_WITH_LUA -DBUILD_DEPRECATED \
 # cartridges compiled into the binary, and src/../build/assets is where they
 # live.
 INCLUDE := -I $(SHIM)/include -I $(SHIM)/include/SDL2 \
-	-I $(DISKCACHE_DIR) \
 	-I $(CURDIR)/ticext \
 	-I $(TIC)/include -I $(TIC)/src -I $(TIC)/src/studio \
 	-I $(TIC)/vendor/lua -I $(TIC)/vendor/giflib -I $(TIC)/vendor/blip-buf \
@@ -335,16 +336,6 @@ $(OBJDIR)/%.o: %.cpp | $(OBJDIR)
 	@$(CPP) $(CPPFLAGS) -c -o $@ $<
 
 $(OBJDIR)/%.d: %.cpp | $(OBJDIR)
-	@$(CPP) $(CPPFLAGS) -M -MG -MT $(@:.d=.o) -MT $@ -MF $@ $<
-
-# The disk cache, which lives outside this directory. Its own rule because
-# the pattern rule above only reaches sources beside this makefile, and its
-# object and dependency file go in this board's tree like every other.
-$(DISKCACHE_OBJ): $(DISKCACHE_DIR)/diskcache.cpp | $(OBJDIR)
-	@echo "  CPP   $@"
-	@$(CPP) $(CPPFLAGS) -c -o $@ $<
-
-$(OBJDIR)/diskcache.d: $(DISKCACHE_DIR)/diskcache.cpp | $(OBJDIR)
 	@$(CPP) $(CPPFLAGS) -M -MG -MT $(@:.d=.o) -MT $@ -MF $@ $<
 
 # TIC-80's objects, mirroring its source tree under $(OBJDIR)/tic/. The
